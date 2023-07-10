@@ -43,6 +43,7 @@ def getdoc(doctype, name, user=None):
 		)
 		raise frappe.PermissionError(("read", doctype, name))
 
+	# ignores system setting (apply_perm_level_on_api_calls) unconditionally to maintain backward compatibility
 	doc.apply_fieldlevel_read_permissions()
 
 	# add file list
@@ -94,7 +95,7 @@ def get_docinfo(doc=None, doctype=None, name=None):
 		if not doc.has_permission("read"):
 			raise frappe.PermissionError
 
-	all_communications = _get_communications(doc.doctype, doc.name)
+	all_communications = _get_communications(doc.doctype, doc.name, limit=21)
 	automated_messages = [
 		msg for msg in all_communications if msg["communication_type"] == "Automated Message"
 	]
@@ -205,11 +206,13 @@ def get_versions(doc):
 
 @frappe.whitelist()
 def get_communications(doctype, name, start=0, limit=20):
+	from frappe.utils import cint
+
 	doc = frappe.get_doc(doctype, name)
 	if not doc.has_permission("read"):
 		raise frappe.PermissionError
 
-	return _get_communications(doctype, name, start, limit)
+	return _get_communications(doctype, name, cint(start), cint(limit))
 
 
 def get_comments(

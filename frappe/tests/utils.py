@@ -3,6 +3,7 @@ import datetime
 import signal
 import unittest
 from contextlib import contextmanager
+from typing import Sequence
 
 import frappe
 from frappe.model.base_document import BaseDocument
@@ -37,6 +38,10 @@ class FrappeTestCase(unittest.TestCase):
 		cls.addClassCleanup(_rollback_db)
 
 		return super().setUpClass()
+
+	def assertSequenceSubset(self, larger: Sequence, smaller: Sequence, msg=None):
+		"""Assert that `expected` is a subset of `actual`."""
+		self.assertTrue(set(smaller).issubset(set(larger)), msg=msg)
 
 	# --- Frappe Framework specific assertions
 	def assertDocumentEqual(self, expected, actual):
@@ -83,6 +88,26 @@ class FrappeTestCase(unittest.TestCase):
 			frappe.db.sql = _sql_with_count
 			yield
 			self.assertLessEqual(len(queries), count, msg="Queries executed: " + "\n\n".join(queries))
+		finally:
+			frappe.db.sql = orig_sql
+
+	@contextmanager
+	def assertRowsRead(self, count):
+		rows_read = 0
+
+		def _sql_with_count(*args, **kwargs):
+			nonlocal rows_read
+
+			ret = orig_sql(*args, **kwargs)
+			# count of last touched rows as per DB-API 2.0 https://peps.python.org/pep-0249/#rowcount
+			rows_read += cint(frappe.db._cursor.rowcount)
+			return ret
+
+		try:
+			orig_sql = frappe.db.sql
+			frappe.db.sql = _sql_with_count
+			yield
+			self.assertLessEqual(rows_read, count, msg="Queries read more rows than expected")
 		finally:
 			frappe.db.sql = orig_sql
 
@@ -137,7 +162,7 @@ def change_settings(doctype, settings_dict):
 		# change setting
 		for key, value in settings_dict.items():
 			setattr(settings, key, value)
-		settings.save()
+		settings.save(ignore_permissions=True)
 		# singles are cached by default, clear to avoid flake
 		frappe.db.value_cache[settings] = {}
 		yield  # yield control to calling function
@@ -147,7 +172,7 @@ def change_settings(doctype, settings_dict):
 		settings = frappe.get_doc(doctype)
 		for key, value in previous_settings.items():
 			setattr(settings, key, value)
-		settings.save()
+		settings.save(ignore_permissions=True)
 
 
 def timeout(seconds=30, error_message="Test timed out."):

@@ -408,6 +408,12 @@ $.extend(frappe.model, {
 	},
 
 	can_share: function (doctype, frm) {
+		let disable_sharing = cint(frappe.sys_defaults.disable_document_sharing);
+
+		if (disable_sharing && frappe.session.user !== "Administrator") {
+			return false;
+		}
+
 		if (frm) {
 			return frm.perm[0].share === 1;
 		}
@@ -756,7 +762,7 @@ $.extend(frappe.model, {
 	get_all_docs: function (doc) {
 		var all = [doc];
 		for (var key in doc) {
-			if ($.isArray(doc[key])) {
+			if ($.isArray(doc[key]) && !key.startsWith("_")) {
 				var children = doc[key];
 				for (var i = 0, l = children.length; i < l; i++) {
 					all.push(children[i]);

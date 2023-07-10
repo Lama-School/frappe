@@ -14,7 +14,6 @@ import time
 
 # imports - module imports
 import frappe
-from frappe.installer import update_site_config
 from frappe.utils import cint, get_datetime, get_sites, now_datetime
 from frappe.utils.background_jobs import get_jobs
 
@@ -180,6 +179,13 @@ def _get_last_modified_timestamp(doctype):
 
 @frappe.whitelist()
 def activate_scheduler():
+	from frappe.installer import update_site_config
+
+	frappe.only_for("Administrator")
+
+	if frappe.local.conf.maintenance_mode:
+		frappe.throw(frappe._("Scheduler can not be re-enabled when maintenance mode is active."))
+
 	if is_scheduler_disabled():
 		enable_scheduler()
 	if frappe.conf.pause_scheduler:

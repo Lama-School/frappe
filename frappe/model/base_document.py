@@ -11,6 +11,7 @@ from frappe.model import (
 	default_fields,
 	display_fieldtypes,
 	float_like_fields,
+	get_permitted_fields,
 	table_fields,
 )
 from frappe.model.docstatus import DocStatus
@@ -297,19 +298,26 @@ class BaseDocument:
 		self, sanitize=True, convert_dates_to_str=False, ignore_nulls=False, ignore_virtual=False
 	) -> dict:
 		d = _dict()
+		permitted_fields = get_permitted_fields(
+			doctype=self.doctype, parenttype=getattr(self, "parenttype", None)
+		)
+
 		for fieldname in self.meta.get_valid_columns():
+			field_value = getattr(self, fieldname, None)
+
 			# column is valid, we can use getattr
-			d[fieldname] = getattr(self, fieldname, None)
+			d[fieldname] = field_value
 
 			# if no need for sanitization and value is None, continue
 			if not sanitize and d[fieldname] is None:
 				continue
 
 			df = self.meta.get_field(fieldname)
+			is_virtual_field = getattr(df, "is_virtual", False)
 
 			if df:
-				if getattr(df, "is_virtual", False):
-					if ignore_virtual:
+				if is_virtual_field:
+					if ignore_virtual or fieldname not in permitted_fields:
 						del d[fieldname]
 						continue
 
@@ -347,7 +355,7 @@ class BaseDocument:
 			):
 				d[fieldname] = str(d[fieldname])
 
-			if ignore_nulls and d[fieldname] is None:
+			if ignore_nulls and not is_virtual_field and d[fieldname] is None:
 				del d[fieldname]
 
 		return d
@@ -516,7 +524,7 @@ class BaseDocument:
 
 				if not ignore_if_duplicate:
 					frappe.msgprint(
-						_("{0} {1} already exists").format(self.doctype, frappe.bold(self.name)),
+						_("{0} {1} already exists").format(_(self.doctype), frappe.bold(self.name)),
 						title=_("Duplicate Name"),
 						indicator="red",
 					)

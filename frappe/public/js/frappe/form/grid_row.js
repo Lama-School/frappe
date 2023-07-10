@@ -939,12 +939,17 @@ export default class GridRow {
 					let grid_start = inital_position_x - event.touches[0].clientX;
 					let grid_end = grid.clientWidth - grid_container.clientWidth + 2;
 
+					if (frappe.utils.is_rtl()) {
+						grid_start = -grid_start;
+					}
+
 					if (grid_start < 0) {
 						grid_start = 0;
 					} else if (grid_start > grid_end) {
 						grid_start = grid_end;
 					}
-					grid.style.left = `-${grid_start}px`;
+
+					grid.style.left = `${frappe.utils.is_rtl() ? "" : "-"}${grid_start}px`;
 				}
 			})
 			.on("touchend", function () {
@@ -1290,7 +1295,7 @@ export default class GridRow {
 			.find(".grid-delete-row")
 			.toggle(!(this.grid.df && this.grid.df.cannot_delete_rows));
 
-		frappe.dom.freeze("", "dark");
+		frappe.dom.freeze("", "dark grid-form");
 		if (cur_frm) cur_frm.cur_grid = this;
 		this.wrapper.addClass("grid-row-open");
 		if (
