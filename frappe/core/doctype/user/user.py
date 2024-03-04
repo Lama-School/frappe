@@ -306,7 +306,7 @@ class User(Document):
 		self.db_set("reset_password_key", key)
 		self.db_set("last_reset_password_key_generated_on", now_datetime())
 
-		url = f"/update-password/{key}"
+		url = "/update-password?key=" + key
 		if password_expired:
 			url = "/update-password?key=" + key + "&password_expired=true"
 
